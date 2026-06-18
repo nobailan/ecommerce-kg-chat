@@ -15,6 +15,8 @@ from langchain_neo4j import Neo4jVector, Neo4jGraph
 from neo4j_graphrag.types import SearchType
 
 from configuration import config
+from skills import ScriptRouter
+from skills.transaction import TransactionAgent
 
 import sys
 from pathlib import Path
@@ -79,6 +81,18 @@ class ChatService:
             self.json_parser = JsonOutputParser()
             self.str_parser = StrOutputParser()
             print("5. 解析器初始化完成")
+
+            print("6. 初始化话术路由...")
+            self.script_router = ScriptRouter(
+                templates_dir=config.BASE_DIR / "skills" / "templates",
+                embeddings=self.embeddings,
+                threshold=0.85,
+            )
+            print("   话术路由就绪")
+
+            print("7. 初始化下单 Agent...")
+            self.transaction_agent = TransactionAgent(graph=self.graph)
+            print("   下单 Agent 就绪")
             print("ChatService 初始化全部成功")
         except Exception as e:
             print(f"!!! ChatService 初始化失败: {e}")
@@ -561,6 +575,41 @@ class ChatService:
             "entities_to_align": []
         }
 
+    def _extract_template_entities(self, question: str) -> dict:
+        """
+        从问题中提取可能的知识图谱实体，并尝试对齐。
+        返回 {原始名称: 对齐后的KG名称} 映射。
+        """
+        mappings = {}
+        # 常见的品牌/产品名称模式：中文名 + 可能的后缀
+        # 尝试从问题中提取2-5字的连续中文片段
+        import re
+        # 提取中文片段
+        words = re.findall(r'[一-鿿]{2,5}', question)
+        for word in words:
+            # 跳过通用词
+            skip_words = {"有没有", "是不是", "能不能", "可以吗", "怎么样", "什么",
+                          "在哪里", "多少钱", "有哪些", "的手机", "是什么", "怎么",
+                          "手机", "品牌", "商品", "问题", "帮我", "给我", "推荐",
+                          "一个", "这个", "哪个", "帮我", "我要", "我想", "可以",
+                          "属于", "怎么", "客服", "全部", "一些", "多少"}
+            if word in skip_words:
+                continue
+
+            # 尝试在KG中对齐
+            for label in ["BaseTrademark", "SPU", "Category3", "Category2", "Category1"]:
+                if label in self.vector_stores and self.vector_stores[label] is not None:
+                    try:
+                        results = self.vector_stores[label].similarity_search(word, k=1)
+                        if results and results[0].page_content:
+                            aligned = results[0].page_content
+                            if aligned.lower() != word.lower():
+                                mappings[word] = aligned
+                                break  # 已对齐，不再尝试其他label
+                    except Exception:
+                        pass
+        return mappings
+
     def _match_template(self, question: str):
         """
         Match user question against predefined Cypher templates using embedding similarity.
@@ -605,8 +654,13 @@ class ChatService:
             },
             {
                 "patterns": ["有多少", "多少个", "一共多少", "总共有多少", "数量", "总数", "多少个商品"],
-                "cypher": "MATCH (s:SPU) RETURN count(s) AS total_count",
-                "answer_template": "根据查询，平台共有 {results} 件商品。"
+                "cypher": "MATCH (t:BaseTrademark)<-[:Belong]-(s:SPU) WITH t.name AS brand, count(s) AS cnt RETURN brand, cnt ORDER BY cnt DESC LIMIT 20",
+                "answer_template": "根据查询，各品牌商品数量如下：{results}"
+            },
+            {
+                "patterns": ["每个品牌有多少", "每个.*各有", "各自有多少", "分别有多少", "有多少个品牌"],
+                "cypher": "MATCH (t:BaseTrademark) OPTIONAL MATCH (t)<-[:Belong]-(s:SPU) RETURN t.name AS brand, count(s) AS count ORDER BY count DESC",
+                "answer_template": "各品牌商品数量如下：{results}"
             },
             {
                 "patterns": ["属于哪个品牌", "是哪个品牌", "什么牌子", "哪个品牌", "品牌是什么"],
@@ -683,42 +737,90 @@ class ChatService:
         response = self.llm.invoke(answer_prompt)
         return self.str_parser.invoke(response)
 
-    def chat(self, question: str):
-        # Check cache first
+    def chat_nocache(self, question: str, eval_mode: str = "full"):
+        """无缓存版本 — 用于评估对比。"""
+        print(f"   [nocache] Processing: \"{question}\" [mode={eval_mode}]")
+        try:
+            return self._process_question(question, eval_mode, use_cache=False)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return f"抱歉，处理您的问题时出现错误: {e}"
+
+    def chat(self, question: str, eval_mode: str = "full"):
         cache_key = self._cache_key(question)
         cached = self._cache_get(cache_key)
         if cached is not None:
             print(f"   Cache hit: \"{question}\"")
             return cached
+        print(f"   Cache miss: \"{question}\" [mode={eval_mode}]")
+        answer = self._process_question(question, eval_mode, use_cache=True)
+        return answer
 
-        print(f"   Cache miss: \"{question}\"")
+    def _process_question(self, question: str, eval_mode: str, use_cache: bool) -> str:
+        """核心处理逻辑，chat() 和 chat_nocache() 共用。"""
+        cache_key = self._cache_key(question)
         try:
-            # 1. Try template matching first (fast path, no LLM for Cypher)
-            matched = self._match_template(question)
+            # 0. 下单 Agent 检查（最高优先级）
+            order_result = self.transaction_agent.process(question)
+            if order_result:
+                print(f"   [ORDER] TransactionAgent 已处理")
+                if use_cache:
+                    self._cache_set(cache_key, order_result)
+                return order_result
+
+            # 1. 话术路由检查（eval_mode=llm_only 时跳过）
+            if eval_mode != "llm_only":
+                script_match = self.script_router.match(question)
+                if script_match:
+                    print(f"   [SCRIPT HIT] intent={script_match['intent']}, "
+                          f"type={script_match['match_type']}, score={script_match['score']}")
+                    if use_cache:
+                        self._cache_set(cache_key, script_match["script"])
+                    return script_match["script"]
+
+            # 2. 模板匹配（eval_mode=llm_only 时跳过）
+            if eval_mode != "llm_only":
+                matched = self._match_template(question)
+            else:
+                matched = None
             if matched:
                 cypher_query = matched["cypher"]
                 print(f"   Using template cypher: {cypher_query}")
+
+                # 模板路径也做实体对齐：从问题中提取实体 → 对齐 → 注入上下文
+                template_entities = self._extract_template_entities(question)
+                if template_entities:
+                    print(f"   Template entities aligned: {template_entities}")
 
                 is_valid, error_msg = self._validate_cypher(cypher_query)
                 if is_valid:
                     query_result = self._execute_cypher(cypher_query, {})
                     query_result, is_empty = self._validate_result(query_result, question)
                     if is_empty:
-                        answer = "未找到相关信息。"
+                        fallback = self.script_router.match(question)
+                        if fallback:
+                            answer = fallback["script"]
+                        else:
+                            answer = "这个问题我需要再查一下，稍等～暂时没有查到精确匹配的信息，换个关键词试试，或者告诉我更多细节，我帮您找～"
                     else:
+                        # 将实体对齐结果注入查询结果，帮助LLM理解中英文映射
+                        if template_entities:
+                            query_result.append({"_entity_alignments": template_entities})
                         answer = self._generate_final_answer(question, query_result)
-                    self._cache_set(cache_key, answer)
+                    if use_cache:
+                        self._cache_set(cache_key, answer)
                     return answer
                 else:
                     print(f"   Template cypher validation failed: {error_msg}, falling through to LLM generation")
 
-            # 2. LLM-based Cypher generation
+            # 3. LLM-based Cypher generation
             print("   Generating Cypher via LLM...")
             cypher = self._generate_cypher(question, self.graph.schema)
             cypher_query = cypher['cypher_query']
             entities_to_align = cypher['entities_to_align']
 
-            # 3. Validate Cypher syntax with retry mechanism
+            # 4. Validate Cypher syntax with retry
             is_valid, error_msg = self._validate_cypher(cypher_query)
             retry_count = 0
             max_retries = 2
@@ -749,40 +851,41 @@ Output format: {{"cypher_query": "<fixed cypher>", "entities_to_align": []}}
 
                 fix_response = self.llm.invoke(fix_prompt)
                 fix_text = fix_response.content.strip()
-                print("=== LLM Fix Response ===")
-                print(fix_text)
-
                 fix_json = self._try_parse_cypher_response(fix_text, question)
                 if fix_json:
                     cypher_query = fix_json.get("cypher_query", cypher_query)
                     entities_to_align = fix_json.get("entities_to_align", entities_to_align)
                     is_valid, error_msg = self._validate_cypher(cypher_query)
                 else:
-                    print("   Failed to parse LLM fix response, stopping retries")
                     break
 
             if not is_valid:
-                print(f"   Cypher validation still failing after {retry_count} retries, using fallback templates")
+                print(f"   Cypher validation still failing after {retry_count} retries, using fallback")
                 default_cypher = self._get_default_cypher(question)
                 cypher_query = default_cypher["cypher_query"]
                 entities_to_align = default_cypher["entities_to_align"]
                 is_valid, error_msg = self._validate_cypher(cypher_query)
                 if not is_valid:
-                    print(f"   Even fallback template failed: {error_msg}")
                     return "抱歉，生成的查询语句有语法错误，请重新描述您的问题。"
 
-            # 4. Execute and generate answer
+            # 5. Execute and generate answer
             entities = self._entity_align(entities_to_align)
             params = {entity['param_name']: entity['entity'] for entity in entities}
-            print(cypher_query, params)
             query_result = self._execute_cypher(cypher_query, params)
 
             query_result, is_empty = self._validate_result(query_result, question)
             if is_empty:
-                answer = "未找到相关信息。"
+                # 空结果兜底：再走一次话术路由
+                fallback = self.script_router.match(question)
+                if fallback:
+                    print(f"   [FALLBACK SCRIPT] intent={fallback['intent']}")
+                    answer = fallback["script"]
+                else:
+                    answer = "这个问题我需要再查一下资料库，稍等哦～\n\n暂时没有查到精确匹配的信息，不过您可以：\n• 换个关键词试试，比如具体的品牌或型号\n• 告诉我更多细节，我帮您精准查找\n• 我也可以帮您推荐类似的商品～"
             else:
                 answer = self._generate_final_answer(question, query_result)
-            self._cache_set(cache_key, answer)
+            if use_cache:
+                self._cache_set(cache_key, answer)
             return answer
         except Exception as e:
             import traceback
@@ -812,6 +915,25 @@ Output format: {{"cypher_query": "<fixed cypher>", "entities_to_align": []}}
             print(f"   Stream cache miss: \"{question}\"")
             cypher_query = None
             entities_to_align = []
+
+            # 0. 下单 Agent 检查
+            order_result = self.transaction_agent.process(question)
+            if order_result:
+                print(f"   [ORDER] TransactionAgent 已处理")
+                self._cache_set(cache_key, order_result)
+                yield json.dumps({"message": order_result}, ensure_ascii=False)
+                yield "[DONE]"
+                return
+
+            # 1. 话术路由检查
+            script_match = self.script_router.match(question)
+            if script_match:
+                print(f"   [SCRIPT HIT] intent={script_match['intent']}, "
+                      f"type={script_match['match_type']}")
+                self._cache_set(cache_key, script_match["script"])
+                yield json.dumps({"message": script_match["script"]}, ensure_ascii=False)
+                yield "[DONE]"
+                return
 
             # 1. Try template matching first (fast path, no LLM for Cypher)
             matched = self._match_template(question)

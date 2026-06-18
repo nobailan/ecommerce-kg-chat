@@ -1,0 +1,765 @@
+{
+  "meta": {
+    "version": "1.0",
+    "created": "2026-06-18",
+    "total": 115,
+    "categories": {
+      "product_inquiry": "商品咨询",
+      "order_query": "订单查询",
+      "recommendation": "推荐导购",
+      "after_sales": "售后问题"
+    }
+  },
+  "test_cases": [
+    {
+      "id": "P001",
+      "category": "product_inquiry",
+      "question": "有哪些手机品牌？",
+      "expected_answer": "列出平台中的手机品牌，如苹果、华为、三星、小米等",
+      "evaluation_criteria": "contains_brand_list"
+    },
+    {
+      "id": "P002",
+      "category": "product_inquiry",
+      "question": "华为有哪些手机？",
+      "expected_answer": "列出华为品牌下的手机型号",
+      "evaluation_criteria": "contains_product_list"
+    },
+    {
+      "id": "P003",
+      "category": "product_inquiry",
+      "question": "有哪些商品分类？",
+      "expected_answer": "列出一级分类，如图书、手机、家用电器等",
+      "evaluation_criteria": "contains_category_list"
+    },
+    {
+      "id": "P004",
+      "category": "product_inquiry",
+      "question": "手机属于哪个分类？",
+      "expected_answer": "说明手机的分类层级关系",
+      "evaluation_criteria": "category_hierarchy"
+    },
+    {
+      "id": "P005",
+      "category": "product_inquiry",
+      "question": "华为P60有哪些规格？",
+      "expected_answer": "列出华为P60的SKU规格信息",
+      "evaluation_criteria": "contains_sku_info"
+    },
+    {
+      "id": "P006",
+      "category": "product_inquiry",
+      "question": "Apple iPhone 15属于哪个品牌？",
+      "expected_answer": "属于Apple/苹果品牌",
+      "evaluation_criteria": "correct_brand"
+    },
+    {
+      "id": "P007",
+      "category": "product_inquiry",
+      "question": "有哪些颜色的手机？",
+      "expected_answer": "列出手机的颜色选项",
+      "evaluation_criteria": "contains_color_info"
+    },
+    {
+      "id": "P008",
+      "category": "product_inquiry",
+      "question": "这款手机有什么尺码可选？",
+      "expected_answer": "列出尺寸或尺码选项",
+      "evaluation_criteria": "contains_size_info"
+    },
+    {
+      "id": "P009",
+      "category": "product_inquiry",
+      "question": "什么材质的手机壳比较好？",
+      "expected_answer": "列出材质选项或说明无法查询",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "P010",
+      "category": "product_inquiry",
+      "question": "小米和华为哪个品牌的产品更多？",
+      "expected_answer": "比较两个品牌的产品数量",
+      "evaluation_criteria": "comparison_response"
+    },
+    {
+      "id": "P011",
+      "category": "product_inquiry",
+      "question": "有没有OPPO的手机？",
+      "expected_answer": "列出OPPO品牌的产品或说明未找到",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "P012",
+      "category": "product_inquiry",
+      "question": "华为有多少个商品？",
+      "expected_answer": "给出华为品牌下的商品数量",
+      "evaluation_criteria": "contains_count"
+    },
+    {
+      "id": "P013",
+      "category": "product_inquiry",
+      "question": "全部商品一共有多少个？",
+      "expected_answer": "给出平台商品总数",
+      "evaluation_criteria": "contains_count"
+    },
+    {
+      "id": "P014",
+      "category": "product_inquiry",
+      "question": "三星有哪些型号的手机？",
+      "expected_answer": "列出三星品牌的手机型号",
+      "evaluation_criteria": "contains_product_list"
+    },
+    {
+      "id": "P015",
+      "category": "product_inquiry",
+      "question": "哪些商品最热门？",
+      "expected_answer": "列出热门或推荐商品",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "P016",
+      "category": "product_inquiry",
+      "question": "华为P60多少钱？",
+      "expected_answer": "给出华为P60的价格信息",
+      "evaluation_criteria": "contains_price"
+    },
+    {
+      "id": "P017",
+      "category": "product_inquiry",
+      "question": "有蓝牙耳机吗？",
+      "expected_answer": "搜索蓝牙耳机相关商品",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "P018",
+      "category": "product_inquiry",
+      "question": "家电分类下有哪些商品？",
+      "expected_answer": "列出家用电器分类下的商品",
+      "evaluation_criteria": "contains_product_list"
+    },
+    {
+      "id": "P019",
+      "category": "product_inquiry",
+      "question": "有什么新上的商品？",
+      "expected_answer": "列出商品或说明无法查询",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "P020",
+      "category": "product_inquiry",
+      "question": "这些商品有什么区别？",
+      "expected_answer": "要求澄清或说明需要对比哪些商品",
+      "evaluation_criteria": "clarification_or_helpful"
+    },
+    {
+      "id": "O001",
+      "category": "order_query",
+      "question": "我的订单什么时候发货？",
+      "expected_answer": "说明无法查询订单，引导用户提供订单号或联系人工",
+      "evaluation_criteria": "graceful_fallback"
+    },
+    {
+      "id": "O002",
+      "category": "order_query",
+      "question": "怎么查看我的购买记录？",
+      "expected_answer": "说明无法查询，建议登录账户查看",
+      "evaluation_criteria": "graceful_fallback"
+    },
+    {
+      "id": "O003",
+      "category": "order_query",
+      "question": "快递到哪了？",
+      "expected_answer": "说明无法查询物流，建议查看订单详情",
+      "evaluation_criteria": "graceful_fallback"
+    },
+    {
+      "id": "O004",
+      "category": "order_query",
+      "question": "能帮我查一下物流单号吗？",
+      "expected_answer": "说明无法查询，引导联系客服",
+      "evaluation_criteria": "graceful_fallback"
+    },
+    {
+      "id": "O005",
+      "category": "order_query",
+      "question": "昨天买的商品发货了吗？",
+      "expected_answer": "说明无法查询订单状态",
+      "evaluation_criteria": "graceful_fallback"
+    },
+    {
+      "id": "O006",
+      "category": "order_query",
+      "question": "什么时候能收到货？",
+      "expected_answer": "说明无法查询，给出一般配送时效参考",
+      "evaluation_criteria": "graceful_fallback"
+    },
+    {
+      "id": "O007",
+      "category": "order_query",
+      "question": "可以修改收货地址吗？",
+      "expected_answer": "说明无法修改，建议联系人工客服",
+      "evaluation_criteria": "graceful_fallback"
+    },
+    {
+      "id": "O008",
+      "category": "order_query",
+      "question": "我买了三件商品怎么只收到两件？",
+      "expected_answer": "说明无法查询，引导联系人工处理",
+      "evaluation_criteria": "graceful_fallback"
+    },
+    {
+      "id": "O009",
+      "category": "order_query",
+      "question": "订单号是多少？",
+      "expected_answer": "说明无法查询，引导登录账户查看",
+      "evaluation_criteria": "graceful_fallback"
+    },
+    {
+      "id": "O010",
+      "category": "order_query",
+      "question": "可以取消订单吗？",
+      "expected_answer": "说明取消政策，引导提供订单信息或联系人工",
+      "evaluation_criteria": "graceful_fallback"
+    },
+    {
+      "id": "R001",
+      "category": "recommendation",
+      "question": "帮我推荐一款适合送礼的口红",
+      "expected_answer": "尝试搜索口红相关商品并推荐",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "R002",
+      "category": "recommendation",
+      "question": "有没有性价比高的耳机？",
+      "expected_answer": "搜索耳机商品并给出推荐",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "R003",
+      "category": "recommendation",
+      "question": "想买一个蓝牙音箱，有什么推荐？",
+      "expected_answer": "搜索音箱相关商品",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "R004",
+      "category": "recommendation",
+      "question": "学生党买什么手机好？",
+      "expected_answer": "推荐性价比高的手机",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "R005",
+      "category": "recommendation",
+      "question": "哪个品牌的手机最好？",
+      "expected_answer": "列出主要品牌并给出建议或说明各有优势",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "R006",
+      "category": "recommendation",
+      "question": "有没有适合跑步的运动耳机？",
+      "expected_answer": "搜索运动耳机相关商品",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "R007",
+      "category": "recommendation",
+      "question": "给我推荐一下护肤品",
+      "expected_answer": "搜索护肤品相关商品",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "R008",
+      "category": "recommendation",
+      "question": "有没有新品推荐？",
+      "expected_answer": "列出推荐商品或说明无法判断新旧",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "R009",
+      "category": "recommendation",
+      "question": "父亲节送什么礼物好？",
+      "expected_answer": "根据场景推荐合适的商品",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "R010",
+      "category": "recommendation",
+      "question": "买手机还是买平板？",
+      "expected_answer": "分析两者区别，帮助用户做出选择",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "A001",
+      "category": "after_sales",
+      "question": "怎么退货？",
+      "expected_answer": "说明退货流程和条件",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "A002",
+      "category": "after_sales",
+      "question": "怎么申请退款？",
+      "expected_answer": "说明退款流程和条件",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "A003",
+      "category": "after_sales",
+      "question": "收到货有瑕疵怎么办？",
+      "expected_answer": "说明瑕疵商品的处理流程",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "A004",
+      "category": "after_sales",
+      "question": "退货包邮吗？",
+      "expected_answer": "说明退货运费政策",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "A005",
+      "category": "after_sales",
+      "question": "超过7天还能退吗？",
+      "expected_answer": "说明超期退换货政策",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "A006",
+      "category": "after_sales",
+      "question": "换货需要多长时间？",
+      "expected_answer": "说明换货流程和时间",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "A007",
+      "category": "after_sales",
+      "question": "商品坏了怎么保修？",
+      "expected_answer": "说明保修政策和流程",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "A008",
+      "category": "after_sales",
+      "question": "发票怎么开？",
+      "expected_answer": "说明开票流程",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "A009",
+      "category": "after_sales",
+      "question": "客服电话是多少？",
+      "expected_answer": "提供客服联系方式",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "A010",
+      "category": "after_sales",
+      "question": "怎么联系人工客服？",
+      "expected_answer": "提供人工客服联系渠道",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "A011",
+      "category": "after_sales",
+      "question": "收到的商品颜色不对怎么办？",
+      "expected_answer": "说明颜色不符的处理流程",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "A012",
+      "category": "after_sales",
+      "question": "可以换一个尺码吗？",
+      "expected_answer": "说明换尺码的流程",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "A013",
+      "category": "after_sales",
+      "question": "退货需要什么凭证？",
+      "expected_answer": "说明退货所需材料",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "A014",
+      "category": "after_sales",
+      "question": "优惠券过期了还能用吗？",
+      "expected_answer": "说明优惠券过期政策",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "A015",
+      "category": "after_sales",
+      "question": "怎么投诉？",
+      "expected_answer": "提供投诉渠道和流程",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "T001",
+      "category": "order_query",
+      "question": "帮我下单华为P60",
+      "expected_answer": "识别下单意图，返回订单确认卡片",
+      "evaluation_criteria": "order_card"
+    },
+    {
+      "id": "T002",
+      "category": "order_query",
+      "question": "我要买这个手机",
+      "expected_answer": "询问具体商品名称或返回订单卡片",
+      "evaluation_criteria": "order_intent"
+    },
+    {
+      "id": "T003",
+      "category": "order_query",
+      "question": "就它了，帮我下单",
+      "expected_answer": "识别下单意图",
+      "evaluation_criteria": "order_intent"
+    },
+    {
+      "id": "T004",
+      "category": "recommendation",
+      "question": "我想买一个蓝牙音箱",
+      "expected_answer": "搜索蓝牙音箱并可能生成推荐",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "T005",
+      "category": "order_query",
+      "question": "推荐一款手机给我，我想买",
+      "expected_answer": "推荐手机并可生成下单引导",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "P021", "category": "product_inquiry",
+      "question": "三星手机有哪些型号？",
+      "expected_answer": "列出三星品牌下的手机型号",
+      "evaluation_criteria": "contains_product_list"
+    },
+    {
+      "id": "P022", "category": "product_inquiry",
+      "question": "VIVO品牌下有什么产品？",
+      "expected_answer": "列出VIVO品牌的产品",
+      "evaluation_criteria": "contains_product_list"
+    },
+    {
+      "id": "P023", "category": "product_inquiry",
+      "question": "有哪些家电品牌？",
+      "expected_answer": "列出家电相关的品牌",
+      "evaluation_criteria": "contains_brand_list"
+    },
+    {
+      "id": "P024", "category": "product_inquiry",
+      "question": "华为Mate60是什么？",
+      "expected_answer": "查询并返回华为Mate60的商品信息",
+      "evaluation_criteria": "contains_product_list"
+    },
+    {
+      "id": "P025", "category": "product_inquiry",
+      "question": "小米13属于哪个分类？",
+      "expected_answer": "说明小米13的分类归属",
+      "evaluation_criteria": "category_hierarchy"
+    },
+    {
+      "id": "P026", "category": "product_inquiry",
+      "question": "这个品牌有哪些规格的手机？",
+      "expected_answer": "要求澄清品牌名称",
+      "evaluation_criteria": "clarification_or_helpful"
+    },
+    {
+      "id": "P027", "category": "product_inquiry",
+      "question": "华为和苹果哪个好？",
+      "expected_answer": "比较分析两个品牌",
+      "evaluation_criteria": "comparison_response"
+    },
+    {
+      "id": "P028", "category": "product_inquiry",
+      "question": "有哪些品牌？每个品牌有多少商品？",
+      "expected_answer": "列出品牌及各自商品数量",
+      "evaluation_criteria": "contains_count"
+    },
+    {
+      "id": "P029", "category": "product_inquiry",
+      "question": "最便宜的手机是哪款？",
+      "expected_answer": "查询价格最低的手机商品",
+      "evaluation_criteria": "contains_price"
+    },
+    {
+      "id": "P030", "category": "product_inquiry",
+      "question": "有哪些智能手表？",
+      "expected_answer": "搜索智能手表商品",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "P031", "category": "product_inquiry",
+      "question": "华为P60和小米13哪个性价比高？",
+      "expected_answer": "比较两款商品的参数和价格",
+      "evaluation_criteria": "comparison_response"
+    },
+    {
+      "id": "P032", "category": "product_inquiry",
+      "question": "一级分类有哪些？",
+      "expected_answer": "列出所有一级分类名称",
+      "evaluation_criteria": "contains_category_list"
+    },
+    {
+      "id": "P033", "category": "product_inquiry",
+      "question": "手机分类下有多少个品牌？",
+      "expected_answer": "统计手机分类下的品牌数量",
+      "evaluation_criteria": "contains_count"
+    },
+    {
+      "id": "P034", "category": "product_inquiry",
+      "question": "荣耀是什么？有哪些产品？",
+      "expected_answer": "说明荣耀品牌及其产品",
+      "evaluation_criteria": "contains_product_list"
+    },
+    {
+      "id": "P035", "category": "product_inquiry",
+      "question": "有没有5G手机？",
+      "expected_answer": "搜索5G手机商品",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "P036", "category": "product_inquiry",
+      "question": "TCL的产品有哪些？",
+      "expected_answer": "列出TCL品牌的产品",
+      "evaluation_criteria": "contains_product_list"
+    },
+    {
+      "id": "P037", "category": "product_inquiry",
+      "question": "有哪些笔记本电脑？",
+      "expected_answer": "搜索笔记本电脑商品",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "P038", "category": "product_inquiry",
+      "question": "家电分类一共有几级？每级叫什么？",
+      "expected_answer": "说明分类层级结构",
+      "evaluation_criteria": "category_hierarchy"
+    },
+    {
+      "id": "P039", "category": "product_inquiry",
+      "question": "哪些品牌有促销活动？",
+      "expected_answer": "说明无法查询促销信息",
+      "evaluation_criteria": "graceful_fallback"
+    },
+    {
+      "id": "P040", "category": "product_inquiry",
+      "question": "华为Mate60 Pro Max多少钱？",
+      "expected_answer": "查询该商品价格（可能不存在）",
+      "evaluation_criteria": "contains_price"
+    },
+    {
+      "id": "O011", "category": "order_query",
+      "question": "怎么修改配送地址？",
+      "expected_answer": "说明修改地址的方法",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "O012", "category": "order_query",
+      "question": "我填错地址了能改吗？",
+      "expected_answer": "说明修改地址的可能性",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "O013", "category": "order_query",
+      "question": "取消订单后钱退到哪里？",
+      "expected_answer": "说明退款路径",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "O014", "category": "order_query",
+      "question": "什么时候发货？下单多久能发货？",
+      "expected_answer": "说明发货时效",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "O015", "category": "order_query",
+      "question": "快递显示签收但我没收到怎么办？",
+      "expected_answer": "引导联系客服处理",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "O016", "category": "order_query",
+      "question": "物流几天没更新了正常吗？",
+      "expected_answer": "说明物流更新情况",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "O017", "category": "order_query",
+      "question": "下错订单了怎么办？",
+      "expected_answer": "说明取消或修改订单的方法",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "O018", "category": "order_query",
+      "question": "我一周前买的还没到，正常吗？",
+      "expected_answer": "说明配送时效或引导查物流",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "O019", "category": "order_query",
+      "question": "能不能换配送方式？",
+      "expected_answer": "说明配送方式修改政策",
+      "evaluation_criteria": "graceful_fallback"
+    },
+    {
+      "id": "O020", "category": "order_query",
+      "question": "帮我查一下物流信息",
+      "expected_answer": "引导用户自行查询物流",
+      "evaluation_criteria": "graceful_fallback"
+    },
+    {
+      "id": "R011", "category": "recommendation",
+      "question": "推荐一款适合拍照的手机",
+      "expected_answer": "推荐拍照性能好的手机",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "R012", "category": "recommendation",
+      "question": "有什么适合老人的手机？",
+      "expected_answer": "推荐适合老人的手机",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "R013", "category": "recommendation",
+      "question": "500元以内有什么好耳机？",
+      "expected_answer": "在预算内推荐耳机",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "R014", "category": "recommendation",
+      "question": "最值得买的智能手表推荐",
+      "expected_answer": "推荐智能手表",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "R015", "category": "recommendation",
+      "question": "给孩子买什么学习机好？",
+      "expected_answer": "推荐学习机产品",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "R016", "category": "recommendation",
+      "question": "办公用什么笔记本推荐？",
+      "expected_answer": "推荐办公笔记本",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "R017", "category": "recommendation",
+      "question": "有没有便宜好用的蓝牙音箱？",
+      "expected_answer": "推荐性价比高的蓝牙音箱",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "R018", "category": "recommendation",
+      "question": "送妈妈什么护肤品好？",
+      "expected_answer": "推荐适合妈妈的护肤品",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "R019", "category": "recommendation",
+      "question": "2024年最受欢迎的手机是什么？",
+      "expected_answer": "推荐热门手机",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "R020", "category": "recommendation",
+      "question": "我需要一个降噪耳机，预算1000以内",
+      "expected_answer": "推荐降噪耳机并关注预算",
+      "evaluation_criteria": "reasonable_response"
+    },
+    {
+      "id": "A016", "category": "after_sales",
+      "question": "怎么联系售后客服？",
+      "expected_answer": "提供售后客服联系方式",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "A017", "category": "after_sales",
+      "question": "我的东西坏了能保修吗？",
+      "expected_answer": "说明保修条件和流程",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "A018", "category": "after_sales",
+      "question": "退货的运费谁出？",
+      "expected_answer": "说明退货运费承担规则",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "A019", "category": "after_sales",
+      "question": "退款多久到账？",
+      "expected_answer": "说明退款到账时间",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "A020", "category": "after_sales",
+      "question": "可以部分退款吗？",
+      "expected_answer": "说明部分退款政策",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "A021", "category": "after_sales",
+      "question": "没收到货却显示已签收，怎么办？",
+      "expected_answer": "引导联系客服核实签收",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "A022", "category": "after_sales",
+      "question": "保修期内维修要钱吗？",
+      "expected_answer": "说明保修期内维修免费政策",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "A023", "category": "after_sales",
+      "question": "配件坏了可以单独买吗？",
+      "expected_answer": "说明配件购买渠道",
+      "evaluation_criteria": "graceful_fallback"
+    },
+    {
+      "id": "A024", "category": "after_sales",
+      "question": "发票丢了还能保修吗？",
+      "expected_answer": "说明无发票的保修政策",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "A025", "category": "after_sales",
+      "question": "优惠券能退吗？",
+      "expected_answer": "说明优惠券退回规则",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "T006", "category": "order_query",
+      "question": "确认下单",
+      "expected_answer": "如果有待处理订单则完成下单",
+      "evaluation_criteria": "order_intent"
+    },
+    {
+      "id": "T007", "category": "recommendation",
+      "question": "我想买华为的手机，帮我下单",
+      "expected_answer": "搜索华为手机并引导下单",
+      "evaluation_criteria": "order_card"
+    },
+    {
+      "id": "T008", "category": "order_query",
+      "question": "就这个，帮我买了",
+      "expected_answer": "识别下单意图",
+      "evaluation_criteria": "order_intent"
+    },
+    {
+      "id": "T009", "category": "order_query",
+      "question": "算了不要了，取消吧",
+      "expected_answer": "说明取消订单的方法",
+      "evaluation_criteria": "after_sales_policy"
+    },
+    {
+      "id": "T010", "category": "recommendation",
+      "question": "有没有小米的手机？帮我下单一个",
+      "expected_answer": "搜索小米手机并引导下单",
+      "evaluation_criteria": "order_card"
+    }
+  ]
+}

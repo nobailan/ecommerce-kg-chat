@@ -1,6 +1,6 @@
 # 🛒 电商知识图谱智能客服系统
 
-> 基于 **知识图谱 + 大语言模型** 的电商智能客服系统，支持自然语言查询、流式响应、语音输入。
+> 基于 **知识图谱 + 大语言模型** 的电商智能客服系统 — **人机难辨的 AI 客服体验**。
 
 <p align="center">
   <img src="picture/基础界面.png" alt="电商智能客服主界面" width="80%">
@@ -18,11 +18,12 @@
 
 ### 亮点
 
-- ⚡ **快速响应**：模板匹配跳过 LLM，常见问题 < 2s；LRU 缓存命中 **0s 响应**
-- 🌊 **流式输出**：SSE 逐 token 推送，首字延迟仅 **2-3s**（vs 非流式 8-13s）
-- 🎤 **语音输入**：Chrome/Edge 浏览器原生语音识别，支持中文
-- 🛡️ **多层容错**：Cypher 语法校验 + 重试 + Fallback 兜底，保障回答质量
-- 📊 **可观测性**：缓存统计端点、14 个查询模板、5 个向量索引
+- 🤖 **人机难辨**：20 条话术模板直达用户，0% AI 暴露率，回复不露 AI 痕迹
+- ⚡ **快速响应**：话术命中 < 10ms；模板匹配 < 2s；LRU 缓存命中 **0s**
+- 🎤 **语音输入**：MediaRecorder + Whisper 离线转文字，无需联网
+- 🛒 **下单闭环**：识别"帮我下单"意图 → 生成订单卡片 → 模拟下单
+- 🛡️ **三级漏斗**：话术路由 → 模板匹配 → LLM 兜底，保障回答质量
+- 📊 **评测体系**：115 题标准测试集 + 三模式对比 + 严格/可用双指标
 
 ---
 
@@ -34,13 +35,12 @@
 graph TB
     subgraph 用户层["🖥️ 用户层"]
         Browser["浏览器<br/>Chrome / Edge"]
-        Mic["🎤 语音输入<br/>MediaRecorder"]
-        SSE["🌊 流式渲染<br/>ReadableStream"]
+        Mic["🎤 语音输入<br/>MediaRecorder + Whisper"]
+        Typing["💬 输入中动画<br/>对方正在输入..."]
     end
 
     subgraph API层["📡 API 层 (FastAPI)"]
-        Chat["POST /api/chat<br/>非流式问答"]
-        Stream["POST /api/chat/stream<br/>SSE 流式问答"]
+        Chat["POST /api/chat<br/>整段响应"]
         Voice["POST /api/voice<br/>Whisper 语音识别"]
         CacheAPI["GET /api/cache/stats<br/>缓存统计"]
     end
@@ -53,7 +53,7 @@ graph TB
         L4["④ EXPLAIN 校验<br/>失败 → 重试 ×2"]
         L5["⑤ 实体对齐<br/>向量 + 模糊匹配"]
         L6["⑥ Cypher 执行<br/>Neo4j 图查询"]
-        L7["⑦ 流式回答生成<br/>SSE 逐 token"]
+        L7["⑦ 整段回答生成<br/>LLM 生成 + 一次性返回"]
         L1 --> L2 --> L3 --> L4 --> L5 --> L6 --> L7
     end
 
@@ -70,12 +70,10 @@ graph TB
     end
 
     Browser -->|"HTTP POST"| Chat
-    Browser -->|"SSE"| Stream
     Browser -->|"音频上传"| Voice
     Browser --> Mic
-    Browser --> SSE
+    Browser --> Typing
     Chat --> L1
-    Stream --> L1
     Voice --> Whisper
     L3 --> DeepSeek
     L2 --> BGE
@@ -92,37 +90,35 @@ graph TB
 ```mermaid
 sequenceDiagram
     actor 用户
-    participant 前端 as 浏览器 (index.html)
+    participant 前端 as 浏览器
     participant API as FastAPI
     participant 服务 as ChatService
     participant LLM as DeepSeek
-    participant Neo4j as Neo4j 图数据库
+    participant Neo4j as Neo4j
 
     用户->>前端: 输入问题 / 语音
-    前端->>API: POST /api/chat/stream
-    API->>服务: chat_stream(question)
+    前端->>前端: 显示"对方正在输入..."动画
+    前端->>API: POST /api/chat
+    API->>服务: chat(question)
 
-    服务->>服务: ① 缓存查询
-    alt 缓存命中
-        服务-->>API: 缓存结果 (0s)
-    else 缓存未命中
-        服务->>服务: ② 模板匹配 (BGE Embedding)
+    服务->>服务: ① 下单 Agent 检查
+    服务->>服务: ② 话术路由 (20条模板)
+    alt 话术命中
+        服务-->>API: 返回标准话术原文 (&lt;10ms)
+    else 话术未命中
+        服务->>服务: ③ 模板匹配 (14个Cypher)
         alt 模板命中
             服务->>Neo4j: 执行模板 Cypher
+            服务->>LLM: 生成自然语言回答
         else 模板未命中
-            服务->>LLM: ③ 生成 Cypher
-            服务->>服务: ④ EXPLAIN 校验
-            opt 校验失败
-                服务->>LLM: 重试 (最多2次)
-            end
-            服务->>服务: ⑤ 实体对齐
-            服务->>Neo4j: ⑥ 执行 Cypher
+            服务->>LLM: ④ 生成 Cypher + 校验 + 重试
+            服务->>Neo4j: ⑤ 实体对齐 + 执行查询
+            服务->>LLM: ⑥ 生成整段回答
         end
-        服务->>LLM: ⑦ 生成自然语言回答
     end
 
-    API-->>前端: SSE token 流
-    前端->>前端: 逐字渲染
+    API-->>前端: 整段 JSON 响应
+    前端->>前端: 一次性展示完整回复
     前端-->>用户: 显示回答
 ```
 
@@ -137,6 +133,8 @@ sequenceDiagram
 | **NER 模型** | BERT-base-chinese 微调 | Token Classification / BIO 标注 |
 | **语音识别** | Whisper base | 离线 STT，无需联网 |
 | **前端** | Vanilla HTML/CSS/JS | 零框架，marked.js + DOMPurify |
+| **话术路由** | ScriptRouter | 关键词 O(1) + Embedding 兜底，20 条模板 |
+| **下单 Agent** | TransactionAgent | 下单意图识别 + 订单卡片 + 模拟下单 |
 | **编排框架** | LangChain | LLM / Embedding / VectorStore 统一抽象 |
 | **配置管理** | python-dotenv | 环境变量管理密钥 |
 
@@ -267,24 +265,26 @@ python app.py
 | 端点 | 方法 | 响应类型 | 说明 |
 |------|------|----------|------|
 | `/` | GET | Redirect | 重定向到前端页面 |
-| `/api/chat` | POST | `application/json` | 非流式问答 |
-| `/api/chat/stream` | POST | `text/event-stream` | 流式问答 (SSE) |
+| `/api/chat` | POST | `application/json` | 整段问答（含"输入中"动画） |
+| `/api/chat?mode=full` | POST | `application/json` | 完整方案（默认） |
+| `/api/chat?mode=no_script` | POST | `application/json` | Naive RAG 模式 |
+| `/api/chat?mode=llm_only` | POST | `application/json` | 纯 LLM 模式 |
+| `/api/chat/stream` | POST | `text/event-stream` | 流式问答 (保留，前端已不使用) |
 | `/api/cache/stats` | GET | `application/json` | 缓存统计 |
-| `/api/voice` | POST | `application/json` | 语音 STT（预留） |
+| `/api/voice` | POST | `application/json` | Whisper 语音转文字 |
 
 ### 请求示例
 
 ```bash
-# 非流式
+# 标准问答
 curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
   -d '{"message": "有哪些手机品牌？"}'
 
-# 流式
-curl -X POST http://localhost:8000/api/chat/stream \
+# 评测模式（去掉缓存干扰）
+curl -X POST "http://localhost:8000/api/chat?mode=full&nocache=true" \
   -H "Content-Type: application/json" \
-  -H "Accept: text/event-stream" \
-  -d '{"message": "华为有什么产品？"}'
+  -d '{"message": "怎么退货？"}'
 ```
 
 ---
@@ -326,36 +326,50 @@ curl -X POST http://localhost:8000/api/chat/stream \
 | 优化层 | 方案 | 收益 |
 |--------|------|------|
 | 🚀 **缓存** | LRU OrderedDict / 100 条目 | 命中时 **0s** |
-| 📋 **模板** | 14 个 Cypher + Embedding 匹配 | 命中时 **1.5-4s**（跳过 LLM） |
-| 🌊 **流式** | SSE / 逐 token 渲染 | 首字 **2-3s** |
+| 📋 **模板** | 14 个 Cypher + Embedding 匹配 | 命中时 **1.5-3s**（跳过 LLM） |
+| 💬 **话术路由** | 20 条标准话术 + 关键词匹配 | 命中时 **< 10ms**（零 LLM） |
 | 🎯 **GPU** | CUDA 自动检测 | 嵌入计算 -0.5~1s |
 | 🔍 **索引** | 5 个 Hybrid Search 索引 | 实体对齐加速 |
 
-### 效果对比
+### 效果对比（115 题评测）
 
-| 指标 | 优化前 | 优化后 |
-|------|--------|--------|
-| 常见问题响应 | 8-13s | **< 2s** |
-| 复杂问题首字 | 8-13s | **2-3s** |
-| 缓存命中 | N/A | **0s** |
-| Cypher 成功率 | ~70% | **> 90%** |
+| 指标 | 纯 LLM | Naive RAG | **完整方案** |
+|------|--------|-----------|------------|
+| 严格正确率 | 59.1% | 70.4% | **71.3%** |
+| 可用率 | 93.9% | 98.3% | **99.1%** |
+| AI 暴露率 | 6.1% | 1.7% | **0%** |
+| 响应时间 | 6.41s | 2.60s | **2.57s** |
+| 售后准确率 | ~50% | 87% | **88%** |
 
 ---
 
 ## 🧪 测试
 
-项目包含 6 套件自动化测试（`test_improvements.py`，860 行），覆盖：
+项目包含两套测试体系：
 
-1. **流式端点** — SSE 事件接收 / [DONE] 标记 / Content-Type
-2. **模板匹配** — 10 个常见问题快速路径
-3. **缓存** — 重复查询加速 + 统计端点
-4. **错误处理** — 格式错误 / 空消息 / 超长消息 / 404
-5. **语音接口** — 端点可访问 / JSON 格式
-6. **向后兼容** — 原始 `/api/chat` 端点
+### API 测试（`test_improvements.py`，860 行）
+
+覆盖流式端点、模板匹配、缓存、错误处理、语音接口、向后兼容 6 个维度。
+
+### 评测框架（`evaluation/`）
+
+- **115 条标准测试集**：商品咨询(40) + 订单查询(27) + 推荐导购(23) + 售后问题(25)
+- **三模式对比**：纯 LLM / Naive RAG / 完整方案
+- **双指标**：严格正确率（含具体信息） + 可用率（含合理引导）
+- **AI 暴露检测**：自动识别"请联系客服"等自曝用词
 
 ```bash
-# 先启动服务，再运行测试
+# API 测试（需要服务运行）
 python test_improvements.py
+
+# 评测（交互标注模式）
+python evaluation/evaluate.py
+
+# 评测（自动模式）
+python evaluation/evaluate.py --auto
+
+# 评测（三模式对比）
+python evaluation/evaluate.py --mode compare
 ```
 
 ---
@@ -372,13 +386,13 @@ python test_improvements.py
 
 ---
 
-### 🌊 流式响应（GIF）
+### 💬 "对方正在输入..." 动画
 
 <p align="center">
-  <img src="picture/流式输出.gif" alt="流式响应动画" width="70%">
+  <img src="picture/流式输出.gif" alt="输入中动画" width="70%">
 </p>
 
-SSE 逐 token 推送，**首字延迟仅 2-3 秒**，用户无需等待完整响应即可开始阅读。
+发送消息后显示"对方正在输入..."动画，**模拟真人对话节奏**，不暴露 AI 身份。
 
 ---
 
@@ -421,6 +435,27 @@ SSE 逐 token 推送，**首字延迟仅 2-3 秒**，用户无需等待完整响
 - `apikey.env` 包含 API Key，**切勿提交到 Git**
 - 模型文件（`models/`）体积较大，请通过 HuggingFace 下载
 - 定期更换 API Key 和数据库密码
+
+---
+
+## 📝 版本历史
+
+### v1.1（当前版本）
+
+- ✅ 新增 **ScriptRouter 话术路由**：20 条标准话术模板，售后/物流/客服等高频场景秒回
+- ✅ 新增 **TransactionAgent 下单 Agent**：识别下单意图 → 订单卡片 → 模拟下单闭环
+- ✅ 新增 **评测框架**：115 题标准测试集 + 三模式对比 + AI 暴露检测
+- ✅ 优化 **前端交互**：去掉流式开关 → "对方正在输入..."动画 → 整段响应
+- ✅ 优化 **语音输入**：MediaRecorder + Whisper 离线识别，不再依赖 Google 服务
+- ✅ 消除 **AI 暴露**：重写全部话术，不再出现"请联系客服"等自曝用语
+- ✅ 评测结果：严格正确率 71.3% | AI 暴露率 0% | 响应 2.57s
+
+### v1.0（初始版本）
+
+- FastAPI + LangChain + Neo4j + DeepSeek 基础架构
+- 14 个 Cypher 模板匹配 + 8-shot LLM 兜底
+- SSE 流式响应 + LRU 缓存 + Web Speech API 语音输入
+- 6 套件自动化测试（860 行）
 
 ---
 

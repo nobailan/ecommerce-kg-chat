@@ -25,9 +25,9 @@ try:
     import whisper
     # base 模型 ~142MB，中文识别质量不错，CPU 上约 1-2 秒/秒音频
     whisper_model = whisper.load_model("base")
-    print("✅ Whisper base 模型加载完成（离线语音识别就绪）")
+    print("[OK] Whisper base 模型加载完成（离线语音识别就绪）")
 except Exception as e:
-    print(f"⚠️  Whisper 模型加载失败，语音识别不可用: {e}")
+    print(f"[WARN] Whisper 模型加载失败，语音识别不可用: {e}")
 
 
 app = FastAPI()
@@ -42,10 +42,13 @@ def read_root():
     return RedirectResponse("/static/index.html")
 
 @app.post("/api/chat")
-def read_item(question: Question) -> Answer:
-    print("Received question:", question.message)   # 添加
-    answer = service.chat(question.message)
-    print("Answer:", answer)                         # 添加
+def read_item(question: Question, mode: str = "full", nocache: bool = False) -> Answer:
+    print(f"Received question [{mode}]:", question.message)
+    if nocache:
+        answer = service.chat_nocache(question.message, eval_mode=mode)
+    else:
+        answer = service.chat(question.message, eval_mode=mode)
+    print("Answer:", answer[:100] if answer else "(empty)")
     return Answer(message=answer)
 
 

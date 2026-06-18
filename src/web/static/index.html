@@ -122,21 +122,6 @@
             gap: 8px;
         }
 
-        .stream-toggle {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 14px;
-            color: #666;
-            cursor: pointer;
-            user-select: none;
-        }
-
-        .stream-toggle input[type="checkbox"] {
-            cursor: pointer;
-            accent-color: var(--primary-color);
-        }
-
         /* ---------- 按钮组 ---------- */
         .input-actions {
             display: flex;
@@ -381,10 +366,6 @@
     <div class="input-box">
         <textarea id="user-input" placeholder="需要我做什么？"></textarea>
         <div class="input-controls">
-            <label class="stream-toggle" title="开启后回复将逐字显示">
-                <input type="checkbox" id="stream-toggle" checked>
-                <span>流式响应</span>
-            </label>
             <div class="input-actions">
                 <span id="mic-error" class="mic-error"></span>
                 <button id="mic-btn" class="mic-btn" title="语音输入" aria-label="语音输入">
@@ -403,10 +384,8 @@
         const dialogArea = document.getElementById('dialog-area');
         const input = document.getElementById('user-input');
         const sendBtn = document.getElementById('send-btn');
-        const streamToggle = document.getElementById('stream-toggle');
         const micBtn = document.getElementById('mic-btn');
         const micError = document.getElementById('mic-error');
-        const loadingBubble = createLoadingBubble();
 
         // ---------- 语音识别（MediaRecorder + 后端 Whisper）----------
         let mediaRecorder = null;
@@ -572,21 +551,12 @@
             input.value = '';
             input.style.height = 'auto';
 
-            const useStreaming = streamToggle.checked;
-
-            if (useStreaming) {
-                await sendMessageStream(message);
-            } else {
-                await sendMessageNonStream(message);
-            }
-
-            sendBtn.disabled = false;
-        }
-
-        // ---------- 非流式（原有逻辑） ----------
-        async function sendMessageNonStream(message) {
-            dialogArea.appendChild(loadingBubble);
+            // 显示"对方正在输入..."动画
+            const typingBubble = createTypingBubble();
+            dialogArea.appendChild(typingBubble);
             window.scrollTo(0, document.body.scrollHeight);
+
+            const typingStart = Date.now();
 
             let responseContent = '';
             try {
@@ -606,106 +576,42 @@
             } catch (error) {
                 console.error("Fetch error:", error);
                 responseContent = '系统暂时无法响应，请稍后再试😥';
-            } finally {
-                if (loadingBubble.parentNode) loadingBubble.remove();
             }
 
+            // 保证"输入中"动画至少显示 1.5 秒
+            const elapsed = Date.now() - typingStart;
+            const minDelay = 1500;
+            if (elapsed < minDelay) {
+                await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
+            }
+
+            // 移除输入中动画
+            if (typingBubble.parentNode) typingBubble.remove();
+
+            // 一次性展示完整回复
             if (responseContent) {
                 addMessage(responseContent, false);
             }
+
+            sendBtn.disabled = false;
         }
 
-        // ---------- 流式响应 ----------
-        async function sendMessageStream(message) {
-            // 创建流式气泡（含内容区和打字指示器）
-            const bubble = createStreamingBubble();
-            dialogArea.appendChild(bubble);
-            window.scrollTo(0, document.body.scrollHeight);
-
-            let accumulatedText = '';
-
-            try {
-                console.log("Sending streaming message:", message);
-                const response = await fetch('/api/chat/stream', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: message })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error ${response.status}`);
-                }
-
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder('utf-8');
-                let buffer = '';
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-
-                    buffer += decoder.decode(value, { stream: true });
-
-                    // 按行分割 SSE 事件
-                    const lines = buffer.split('\n');
-                    // 最后一行可能不完整，保留到下次处理
-                    buffer = lines.pop() || '';
-
-                    for (const line of lines) {
-                        const trimmed = line.trim();
-                        if (!trimmed) continue;
-
-                        if (trimmed.startsWith('data:')) {
-                            const payload = trimmed.slice(5).trim();
-
-                            // SSE 结束标记
-                            if (payload === '[DONE]') {
-                                // 跳出外层 while 循环
-                                // 通过清空 buffer 并设置一个标志
-                                buffer = '';
-                                // 使用一个技巧：让 reader 在下一次迭代自然结束
-                                // 实际上我们在这里 break 内层循环，外层 while 会在 reader.read() 返回 done 时结束
-                                continue;
-                            }
-
-                            try {
-                                const json = JSON.parse(payload);
-                                // 支持多种 token 字段名
-                                const token = json.token || json.content || json.delta || '';
-                                if (token) {
-                                    accumulatedText += token;
-                                    updateStreamingBubble(bubble, accumulatedText);
-                                }
-                                // 支持完整消息字段
-                                if (json.message && !accumulatedText) {
-                                    accumulatedText = json.message;
-                                    updateStreamingBubble(bubble, accumulatedText);
-                                }
-                            } catch (parseErr) {
-                                // 忽略无法解析的 SSE 行
-                                console.warn('SSE parse warning:', parseErr, 'payload:', payload);
-                            }
-                        }
-                    }
-                }
-
-                // 流结束，最终渲染
-                finalizeStreamingBubble(bubble, accumulatedText);
-            } catch (error) {
-                console.error("Stream error:", error);
-                finalizeStreamingBubbleError(bubble, '系统暂时无法响应，请稍后再试😥');
-            }
-        }
-
-        // ---------- 流式气泡辅助函数 ----------
-
-        function createStreamingBubble() {
+        // ---------- "对方正在输入..." 动画 ----------
+        function createTypingBubble() {
             const bubble = document.createElement('div');
             bubble.classList.add('message-bubble', 'bot-message', 'new-message');
 
+            // 头像占位
             const contentDiv = document.createElement('div');
-            contentDiv.className = 'markdown-content';
-            bubble.appendChild(contentDiv);
+            contentDiv.style.display = 'flex';
+            contentDiv.style.alignItems = 'center';
+            contentDiv.style.gap = '8px';
+
+            const text = document.createElement('span');
+            text.textContent = '对方正在输入';
+            text.style.color = '#888';
+            text.style.fontSize = '14px';
+            contentDiv.appendChild(text);
 
             const typingIndicator = document.createElement('div');
             typingIndicator.className = 'typing-indicator';
@@ -713,74 +619,16 @@
                 const dot = document.createElement('span');
                 typingIndicator.appendChild(dot);
             }
-            bubble.appendChild(typingIndicator);
+            contentDiv.appendChild(typingIndicator);
+
+            bubble.appendChild(contentDiv);
+
+            bubble.addEventListener('animationend', function handler() {
+                bubble.classList.remove('new-message');
+                bubble.removeEventListener('animationend', handler);
+            });
 
             return bubble;
-        }
-
-        function updateStreamingBubble(bubble, text) {
-            const contentDiv = bubble.querySelector('.markdown-content');
-            if (contentDiv && typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
-                const dirty = marked.parse(text);
-                contentDiv.innerHTML = DOMPurify.sanitize(dirty, {
-                    ADD_TAGS: ["iframe"],
-                    ADD_ATTR: ["allowfullscreen"]
-                });
-            } else if (contentDiv) {
-                // 降级：纯文本展示
-                contentDiv.textContent = text;
-            }
-            window.scrollTo(0, document.body.scrollHeight);
-        }
-
-        function finalizeStreamingBubble(bubble, text) {
-            // 移除打字指示器
-            const indicator = bubble.querySelector('.typing-indicator');
-            if (indicator) indicator.remove();
-
-            // 最终渲染
-            const contentDiv = bubble.querySelector('.markdown-content');
-            if (contentDiv) {
-                if (text) {
-                    if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
-                        const dirty = marked.parse(text);
-                        contentDiv.innerHTML = DOMPurify.sanitize(dirty, {
-                            ADD_TAGS: ["iframe"],
-                            ADD_ATTR: ["allowfullscreen"]
-                        });
-                    } else {
-                        contentDiv.textContent = text;
-                    }
-                } else {
-                    contentDiv.textContent = '（空响应）';
-                }
-            }
-
-            // 处理入场动画
-            bubble.addEventListener('animationend', function handler() {
-                bubble.classList.remove('new-message');
-                bubble.removeEventListener('animationend', handler);
-            });
-
-            window.scrollTo(0, document.body.scrollHeight);
-        }
-
-        function finalizeStreamingBubbleError(bubble, errorMsg) {
-            const indicator = bubble.querySelector('.typing-indicator');
-            if (indicator) indicator.remove();
-
-            const contentDiv = bubble.querySelector('.markdown-content');
-            if (contentDiv) {
-                contentDiv.textContent = errorMsg;
-                contentDiv.style.color = '#e53e3e';
-            }
-
-            bubble.addEventListener('animationend', function handler() {
-                bubble.classList.remove('new-message');
-                bubble.removeEventListener('animationend', handler);
-            });
-
-            window.scrollTo(0, document.body.scrollHeight);
         }
 
         // ---------- 通用辅助函数 ----------
@@ -798,19 +646,6 @@
                 sendMessage();
             }
         });
-
-        function createLoadingBubble() {
-            const bubble = document.createElement('div');
-            bubble.classList.add('message-bubble', 'bot-message', 'new-message');
-            const loadingContainer = document.createElement('div');
-            loadingContainer.className = 'loading-container';
-            const loader = document.createElement('div');
-            loader.className = 'loader';
-            loadingContainer.appendChild(loader);
-            loadingContainer.appendChild(document.createTextNode('正在思索中...'));
-            bubble.appendChild(loadingContainer);
-            return bubble;
-        }
 
         function addMessage(content, isUser) {
             const bubble = document.createElement('div');
