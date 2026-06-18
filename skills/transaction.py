@@ -29,7 +29,7 @@ class TransactionAgent:
     ]
 
     # 确认触发词
-    CONFIRM_KEYWORDS = ["确认", "确定", "好的", "可以", "行", "下单吧", "买", "ok", "OK", "是的", "没错"]
+    CONFIRM_KEYWORDS = ["确认", "确定", "好的", "下单吧", "买", "是的", "没错", "行吧"]
 
     def __init__(self, graph=None):
         self.graph = graph
@@ -43,11 +43,21 @@ class TransactionAgent:
         return False
 
     def is_confirmation(self, message: str) -> bool:
-        """检测是否为确认操作。"""
-        msg = message.strip().lower()
+        """
+        检测是否为确认操作。
+        必须是短消息（6字以内），避免长问题误触发。
+        """
+        msg = message.strip()
+        # 确认回复一定是短消息，长句子不可能是确认
+        if len(msg) > 6:
+            return False
+        msg_lower = msg.lower()
         for kw in self.CONFIRM_KEYWORDS:
-            if kw == msg or kw in msg:
+            if kw == msg_lower or kw == msg:
                 return True
+        # "ok" 单独匹配
+        if msg_lower in ("ok", "okay", "好", "可以", "行"):
+            return True
         return False
 
     def search_product(self, product_name: str) -> Optional[Dict[str, Any]]:
