@@ -63,3 +63,5 @@ evaluation/results/*.json
 # 个人文件
 # ============================================
 AI_PM_CAREER_PLANS.json
+evaluation/*.md
+evaluation/results/
